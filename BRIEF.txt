@@ -1,0 +1,75 @@
+Build a self-proving POC named McpEffectReceipt in this directory.
+
+CLAIM TO PROVE
+A side-effecting MCP-style tools/call with a durable idempotencyKey ledger does not double-execute on retry. Unguarded retry doubles the side effect. Same key + same args replays the stored receipt. Same key + different args conflicts and does not execute.
+
+POTETO-MODE RULES (non-negotiable)
+1. Name the core data shape FIRST in code and README before any other abstraction.
+2. Simplest code that proves the claim. No framework tourism. No em-dashes anywhere in prose.
+3. bash demo.sh is the real artifact. Clear BEFORE/AFTER output. Exit 0 only if all claims pass. Exit non-zero if any claim fails.
+4. README: plain short sentences. Honest limits. Near the top, point to AGENTS.md.
+5. REQUIRED: AGENTS.md at repo root for a downstream coding agent with NO starting context. Cover in this order:
+   - claim proved
+   - status: what is real vs stubbed
+   - data shape with file paths
+   - repo map
+   - exact setup/run/verify from a fresh clone, expected pass output, what failure looks like
+   - design decisions
+   - known limits
+   - prioritized next-steps each with a testable done-when check
+   - working rules
+   - sources (only URLs you are sure exist; listed below)
+6. Verify against real demo output before declaring done. Mentally break the demo once (e.g. delete ledger mid-run) so failure path is real.
+
+CORE DATA SHAPE (implement this first)
+File: src/receipt.py (or equivalent)
+
+EffectReceipt:
+  key: str                  # idempotencyKey from the client
+  tool: str                 # tool name, e.g. "charge"
+  args_hash: str            # stable hash of canonical JSON args
+  status: str               # one of: in_progress | completed | conflict
+  result: dict | None       # tool result when completed
+  created_at: str           # ISO timestamp
+
+Ledger operations (SQLite file at data/ledger.sqlite):
+  begin(key, tool, args) -> Proceed | Replay(result) | Conflict | InProgress
+  complete(key, result) -> None
+  # begin must persist in_progress BEFORE the side effect runs (write-ahead)
+
+SIDE EFFECT FOR THE DEMO
+A fake charge tool that appends one line to data/charges.log and returns {"charged": amount, "tx": n}.
+The mutation is the append. Count lines in charges.log to prove multiplicity.
+
+demo.sh MUST:
+1. Reset data/ (empty charges.log, fresh ledger.sqlite)
+2. Run PATH A (unguarded): call charge(10) twice with NO key. Expect charges.log has 2 lines. Print "PATH A (unguarded): PASS" or FAIL.
+3. Reset charges + ledger again for fair PATH B? Or use a separate amount. Prefer: reset only charges.log and ledger between paths so each path is isolated.
+4. Run PATH B (guarded same key): call charge(10) with key=k1, then retry charge(10) with key=k1. Expect exactly 1 line in charges.log, second call returns same result (replay). PASS/FAIL.
+5. Run PATH C (conflict): after PATH B state OR fresh: call charge(10) with key=k2, then charge(25) with key=k2. Expect still 1 charge for k2's first call, second returns conflict and does NOT append. PASS/FAIL.
+6. Print a final summary. Exit 0 only if A,B,C all PASS.
+
+Also include a small Python package layout:
+  src/receipt.py   # EffectReceipt + Ledger
+  src/charge.py    # fake charge side effect
+  src/server.py    # thin dispatch that accepts tools/call-shaped dicts (need NOT be a full MCP SDK server; simulating the wire shape is enough)
+  demo.sh
+  README.md
+  AGENTS.md
+  requirements.txt (stdlib-only preferred; if sqlite3 only, requirements can be empty or note stdlib)
+  .gitignore
+
+Wire shape for the simulated call (document in README):
+  {"method":"tools/call","params":{"name":"charge","arguments":{"amount":10},"idempotencyKey":"k1"}}
+No MCP SDK required. This is a protocol-shaped proof, not an SDK integration.
+
+LICENSE will be added by the parent agent. Do not invent copyrighted text.
+
+Sources to cite (checked URLs only):
+- https://github.com/modelcontextprotocol/modelcontextprotocol/pull/3182
+- https://eunomia.dev/research/agent-tool-retry-effect-idempotency/
+- https://formation.dev/blog/agent-tool-retry-idempotency
+- https://www.langchain.com/blog/mcp-in-langchain-stateless-protocol-elicitation-and-more
+- https://github.com/azender1/SafeAgent
+
+Do not use em-dashes. Do not pad README with marketing. Ship the proof.

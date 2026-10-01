@@ -1,0 +1,1 @@
+# McpEffectReceipt package marker

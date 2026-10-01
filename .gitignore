@@ -1,0 +1,10 @@
+data/
+__pycache__/
+*.pyc
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+BRIEF.txt
+grok-build.log
+.grok/

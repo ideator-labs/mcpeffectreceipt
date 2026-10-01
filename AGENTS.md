@@ -1,4 +1,4 @@
-# AGENTS.md  -  McpEffectReceipt
+# AGENTS.md - McpEffectReceipt
 
 Cold-start handoff for a coding agent with no prior context.
 
